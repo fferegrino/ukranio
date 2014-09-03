@@ -1,8 +1,8 @@
 #include <iostream>
 using namespace std;
 
-	class Coordenada
-	{
+class Coordenada
+{
 	private:
 		double x;
 		double y;

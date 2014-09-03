@@ -3,7 +3,7 @@
 #include <vector>
 
 int main(){
-	Octoedro o(Coordenada(1.5,1,1), Coordenada(2.5,2,2));
+	Octoedro o(Coordenada(1,1,1), Coordenada(3,3,3));
 	std::cout << "Volumen: " << o.obtieneVolumen() << std::endl;
 	std::cout << "Area: " << o.obtieneArea() << std::endl;
 	std::vector<Coordenada> verts = o.obtieneVertices();
