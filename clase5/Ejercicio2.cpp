@@ -71,7 +71,7 @@ int PoligonoIrregular::totalVertices = 0;
 int PoligonoIrregular::getTotalVertices() {
 	return totalVertices;
 }
-void PoligonoIrregular::imprimeVertices(){
+void PoligonoIrregular::imprimeVertices() {
 	cout << "Las coordenadas son: ";
 	for(int i = 0; i < cords.size(); i++)
 	{
