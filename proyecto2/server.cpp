@@ -1,104 +1,91 @@
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <stdio.h>
-#include <ctype.h>
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+#include <cstdio>
 #include <cstdlib>
-#include <unistd.h>
-#include <pthread.h>
+#include <cstring>
+#include <ctype.h>
 #include "SpaceShip.h"
+#include "Asteroid.h"
+#include "SocketDatagrama.h"
+#include "PaqueteDatagrama.h"
+#include "GameCommon.h"
 
-void * inputThread(void *);
-void * graphicsThread(void *);
 
-const int displayWidth = 900;
-const int delay = 10;
-const int displayHeight = 900;
 
-unsigned long ObtieneColor( Display* dis, char* color_name )
-{
-	Colormap cmap;
-	XColor color_cercano, color_verdadero;
-	cmap = DefaultColormap( dis, 0 );
-	XAllocNamedColor( dis, cmap, color_name, &color_cercano, &color_verdadero );
-	return( color_cercano.pixel );
-}
-
-struct GameThreadAux {
-	Display * display;
-	Window * ventana;
-};
+char clientIp[16];
+int clientPort;
 
 int main()
 {
-	int ans = XInitThreads();
-	printf("%d\n", ans);
-	Display *disp = NULL;
-	Window ventana;
-	XColor color;
-	disp = XOpenDisplay(NULL);
-	ventana = XCreateSimpleWindow (disp, XDefaultRootWindow (disp), 0, 0, displayWidth, displayHeight, 1,1,BlackPixel (disp, DefaultScreen(disp)));
-	XSelectInput(disp, ventana, ButtonPressMask|StructureNotifyMask|KeyPressMask|KeyReleaseMask|KeymapStateMask);
-	XMapWindow (disp, ventana);
 	
-	GameThreadAux aux;
-	aux.display = disp;
-	aux.ventana = &ventana;
-	
-	
-	pthread_t * gameThreads = (pthread_t *) malloc(sizeof(pthread_t) * 2);
-	pthread_create(&gameThreads[0], NULL, inputThread, (void *) &aux);
-	pthread_create(&gameThreads[1], NULL, graphicsThread, (void *) &aux);
-	
-	for (int i=0; i<2; i++) 
-		pthread_join(gameThreads[i], NULL);
-	free(gameThreads);
-	
-	XDestroyWindow( disp , ventana );
-	XCloseDisplay( disp );
-	return(0);
-}
-
-bool up;
-bool down;
-
-void * inputThread(void * aux)
-{
-	XEvent ev;
-	Display * disp = ((GameThreadAux *) aux)->display;
-	while(1)
-	{
-		XNextEvent(disp, &ev);
-		if(ev.type == KeyRelease)
+	SocketDatagrama skt = SocketDatagrama(C_SERVER_PORT);
+	PaqueteDatagrama in = PaqueteDatagrama(sizeof(ClientRequest));
+	int x = G_WINDOW_WIDTH / 2;
+	ClientRequest * clientRequest;
+	PaqueteDatagrama * out = NULL;
+	SpaceShip * spaceShip = NULL;
+	Asteroid ** asteroids = NULL;
+	int asteroidCount = 4;
+	ServerAnswer sa;
+	int request = 0;
+	int requestOpt = -1;
+		int angle = 0;
+		int xast = 0;
+	do {
+		skt.recibe(&in);
+		clientRequest  = (ClientRequest *)in.obtieneDatos();
+		request = clientRequest->request;
+		requestOpt = clientRequest->requestOpt;
+		strcpy(clientIp, in.obtieneDireccion());
+		clientPort = in.obtienePuerto();
+		switch(request)
 		{
-			up = ev.xkey.keycode == 111;
-			down = ev.xkey.keycode == 116;
+			case R_STARTGAME:
+				sa.answer = R_STARTGAME;
+				sa.count = 0;
+				out = new PaqueteDatagrama((char*)&sa, sizeof(sa), clientIp, clientPort);
+				spaceShip =  new SpaceShip(G_WINDOW_WIDTH  / 2 ,G_WINDOW_HEIGHT / 2);
+				asteroids = (Asteroid **)malloc(sizeof(Asteroid *) * asteroidCount);
+				
+				asteroids[0] = new Asteroid(0,G_WINDOW_HEIGHT, 40, 19);
+				
+				asteroids[1] = new Asteroid(G_WINDOW_WIDTH,G_WINDOW_HEIGHT, G_WINDOW_WIDTH / 2, 10);
+				
+				asteroids[2] = new Asteroid(G_WINDOW_WIDTH,0, 54, G_WINDOW_WIDTH / 2);
+				
+				asteroids[3] = new Asteroid(0,0, 90, 6);
+				
+				break;
+			case R_SPACESHIP:
+				sa.answer = R_SPACESHIP;
+				sa.count = spaceShip->getPointsNumber();
+				memcpy(sa.points, spaceShip->getPoints(), sa.count*sizeof(XPoint));
+				out = new PaqueteDatagrama((char*)&sa, sizeof(sa), clientIp, clientPort);
+				break;
+			case R_ASTEROID_COUNT:
+				sa.answer = R_ASTEROID_COUNT;
+				sa.count = asteroidCount;
+				out = new PaqueteDatagrama((char*)&sa, sizeof(sa), clientIp, clientPort);
+				break;
+			case R_ASTEROID:
+				sa.answer = R_ASTEROID;
+				sa.count = asteroids[requestOpt]->getPointsNumber();
+				asteroids[requestOpt]->setAngle(angle);
+				asteroids[requestOpt]->setX(xast);
+				angle++;
+				xast++;
+				angle = angle % 360;
+				xast = xast % G_WINDOW_WIDTH;
+				memcpy(sa.points, asteroids[requestOpt]->getPoints(), sa.count*sizeof(XPoint));
+				out = new PaqueteDatagrama((char*)&sa, sizeof(sa), clientIp, clientPort);
+				break;
 		}
-	}
-}
-
-void * graphicsThread(void * aux)
-{
+		
+		skt.envia(out);
+		free(out);
+		
+		
+		
+	} while(request != R_ENDGAME);
 	
-	Display * disp = ((GameThreadAux *) aux)->display;
-	Window ventana = *(((GameThreadAux *) aux)->ventana);
-	//XMapWindow (disp, ventana);
 	
-	SpaceShip spaceship = SpaceShip(displayWidth  / 2 ,displayHeight / 2);
-	int t = 0;
-	int s = 50;
-	while(1)
-	{
-		printf("G");
-		XSetForeground( disp, XDefaultGC (disp, DefaultScreen(disp)), BlackPixel(disp,0)^ObtieneColor( disp, "aqua"));
-		XClearWindow(disp,ventana);
-		spaceship.setAngle(t++);
-		t %= 360;
-		if(up)
-			s++;
-		if(down)
-			s--;
-		spaceship.setSize(s);
-		XDrawLines(disp, ventana,XDefaultGC (disp, DefaultScreen(disp)), spaceship.getPoints(), spaceship.getPointsNumber(), CoordModeOrigin);
-		usleep(41666);	
-	}
 }

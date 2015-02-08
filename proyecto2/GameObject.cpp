@@ -24,4 +24,26 @@ void GameObject::setAngle(int ang)
 }
 
 
+void GameObject::setX(int x)
+{
+	_x= x;
+}
+
+void GameObject::setY(int y)
+{
+	_y = y;
+}
+
+int GameObject::getY()
+{
+	return _y;
+}
+
+int GameObject::getX()
+{
+	return _x;
+}
+
+
+
 
