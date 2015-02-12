@@ -8,8 +8,8 @@ SpaceShip::SpaceShip(int x, int y) :
 {
 	_angle = 0;
 	_size = 30;
-	_pointsNumber = 4;
-	points  = (XPoint *)malloc(sizeof(XPoint) * _pointsNumber);
+	_pointCount = 4;
+	points  = (XPoint *)malloc(sizeof(XPoint) * _pointCount);
 }
 
 void SpaceShip::setAngle(int angle)
@@ -42,7 +42,7 @@ XPoint * SpaceShip::getPoints()
 	return points;
 }
 
-int SpaceShip::getPointsNumber()
+int SpaceShip::getPointCount()
 {
-	return _pointsNumber;
+	return _pointCount;
 }

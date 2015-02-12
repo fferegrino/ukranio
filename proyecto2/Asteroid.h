@@ -8,18 +8,17 @@
 class Asteroid : public GameObject {
 
 	public: 
-		Asteroid(int, int);
-		Asteroid(int, int, int, int);
+		Asteroid(int, int, int);
+		Asteroid(int, int, int, int, int);
 		void setAngle(int);
 		void setSize(int);
 		XPoint * getPoints();
-		int getPointsNumber();
+		int getPointCount();
+		void addNextRadio(int r);
 	private:
 		int _size;
-		int _x1;
-		int _y1;
-		int _x2;
-		int _y2;
+		int _ir;
+		int * _radios;
 };
 
 

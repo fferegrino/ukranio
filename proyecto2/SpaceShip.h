@@ -12,7 +12,7 @@ class SpaceShip : public GameObject {
 		void setAngle(int);
 		void setSize(int);
 		XPoint * getPoints();
-		int getPointsNumber();
+		int getPointCount();
 	private:
 		int _size;
 };

@@ -52,7 +52,7 @@ int main()
 			if(ans == -1)
 				printf("Lost package\n");
 			answer = (ServerAnswer *)in.obtieneDatos();
-			XSetForeground( disp, XDefaultGC (disp, DefaultScreen(disp)), spaceShipColor);
+			XSetForeground( disp, XDefaultGC (disp, DefaultScreen(disp)), CC_GREEN);
 			XDrawLines(disp, ventana,XDefaultGC (disp, DefaultScreen(disp)), answer->points, answer->count, CoordModeOrigin);
 			
 			// Asteroids
@@ -70,7 +70,7 @@ int main()
 				rq.request = R_ASTEROID;
 				rq.requestOpt = ii;
 				out = new PaqueteDatagrama((char*)&rq, sizeof(rq), "127.0.0.1", C_SERVER_PORT);
-				XSetForeground( disp, XDefaultGC (disp, DefaultScreen(disp)), asteroidColor);
+				XSetForeground( disp, XDefaultGC (disp, DefaultScreen(disp)), CC_GREEN);
 				skt.envia(out);
 				ans = skt.recibe(&in);
 				answer = (ServerAnswer *)in.obtieneDatos();
@@ -79,8 +79,8 @@ int main()
 				XDrawLines(disp, ventana,XDefaultGC (disp, DefaultScreen(disp)), answer->points, answer->count, CoordModeOrigin);	
 			}
 			free(out);
-			XSetForeground( disp, XDefaultGC (disp, DefaultScreen(disp)), spaceShipColor);
-			usleep(delay * 1000);	
+			XSetForeground( disp, XDefaultGC (disp, DefaultScreen(disp)), CC_GREEN);
+			usleep(41666);	
 			XClearWindow(disp,ventana);
 		}		
 	}

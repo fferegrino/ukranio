@@ -1,3 +1,6 @@
+#ifndef __GAMECOMMON_H__
+#define __GAMECOMMON_H__
+
 #define R_STARTGAME 0x01
 #define R_SPACESHIP 0x02
 #define R_ASTEROID 0x03
@@ -9,6 +12,17 @@
 
 #define G_WINDOW_WIDTH 500
 #define G_WINDOW_HEIGHT 500
+
+#define MAX_ASTEROID_NODES 10
+#define MIN_ASTEROID_NODES 8
+#define MAX_ASTEROID_RADIO 40
+#define MIN_ASTEROID_RADIO 20
+#define MAX_ASTEROID_COUNT 6
+#define MIN_ASTEROID_COUNT 2
+
+#define CC_GREEN BlackPixel(disp,0)^ObtieneColor( disp, "green")
+#define CC_YELLOW BlackPixel(disp,0)^ObtieneColor( disp, "yellow")
+#define CC_RED BlackPixel(disp,0)^ObtieneColor( disp, "red")
 
 
 struct ServerAnswer 
@@ -23,3 +37,6 @@ struct ClientRequest
 	int request;
 	int requestOpt;
 };
+
+
+#endif
