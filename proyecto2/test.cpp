@@ -19,7 +19,8 @@ const int delay = 5;
 
 int main()
 {
-	printf("XPoint:\t %3ld\n", 1024 / sizeof(XPoint));
+	
+	printf("%d\n", sizeof(XPoint));
 }
 
 unsigned long ObtieneColor( Display* dis, char* color_name )

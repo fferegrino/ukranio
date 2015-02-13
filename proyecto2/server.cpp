@@ -32,6 +32,8 @@ int main()
 	int requestOpt = -1;
 	int angle = 0;
 	int xast = 0;
+	int answerCount = 0;
+	unsigned long long int asteroidLoc = 0;
 	do {
 		skt.recibe(&in);
 		clientRequest  = (ClientRequest *)in.obtieneDatos();
@@ -45,7 +47,7 @@ int main()
 				free(asteroids);
 				free(spaceShip);
 				sa.answer = R_STARTGAME;
-				sa.count = 0;
+				//sa.count = 0;
 				out = new PaqueteDatagrama((char*)&sa, sizeof(sa), clientIp, clientPort);
 				spaceShip =  new SpaceShip(G_WINDOW_WIDTH  / 2 ,G_WINDOW_HEIGHT / 2);
 				asteroidC =  asteroidCount();
@@ -59,27 +61,23 @@ int main()
 				}
 				
 				break;
-			case R_SPACESHIP:
-				sa.answer = R_SPACESHIP;
-				sa.count = spaceShip->getPointCount();
-				memcpy(sa.points, spaceShip->getPoints(), sa.count*sizeof(XPoint));
-				out = new PaqueteDatagrama((char*)&sa, sizeof(sa), clientIp, clientPort);
-				break;
-			case R_ASTEROID_COUNT:
-				sa.answer = R_ASTEROID_COUNT;
-				sa.count = asteroidC;
-				out = new PaqueteDatagrama((char*)&sa, sizeof(sa), clientIp, clientPort);
-				break;
-			case R_ASTEROID:
-				sa.answer = R_ASTEROID;
-				sa.count = asteroids[requestOpt]->getPointCount();
-				asteroids[requestOpt]->setAngle(angle);
-				asteroids[requestOpt]->setX(xast);
-				//angle++;
-				xast++;
-				angle = angle % 360;
-				xast = xast % G_WINDOW_WIDTH;
-				memcpy(sa.points, asteroids[requestOpt]->getPoints(), sa.count*sizeof(XPoint));
+			case R_FULLFRAME:
+				answerCount = 0;
+				asteroidLoc = 0;
+				sa.answer = R_FULLFRAME;
+				answerCount = spaceShip->getPointCount();
+				memcpy(sa.points, spaceShip->getPoints(), answerCount * sizeof(XPoint));
+				xast = (++xast) % G_WINDOW_WIDTH;
+				for(int ii = 0; ii < asteroidC; ii++)
+				{
+					asteroidLoc *= 10;
+					asteroidLoc += asteroids[ii]->getPointCount();
+					asteroids[ii]->setX(xast);
+					memcpy(sa.points + answerCount, asteroids[ii]->getPoints(), asteroids[ii]->getPointCount()*sizeof(XPoint));	
+					answerCount += asteroids[ii]->getPointCount();
+				}
+				sa.asteroidCount = answerCount;
+				sa.asteroidNodes = asteroidLoc;
 				out = new PaqueteDatagrama((char*)&sa, sizeof(sa), clientIp, clientPort);
 				break;
 		}

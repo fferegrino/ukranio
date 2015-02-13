@@ -15,8 +15,6 @@ unsigned long ObtieneColor( Display* dis, char* color_name );
 
 char clientIp[16];
 int clientPort;
-unsigned long spaceShipColor;
-unsigned long asteroidColor;
 
 int main()
 {
@@ -31,6 +29,8 @@ int main()
 	skt.envia(out);
 	skt.recibe(&in);
 	ServerAnswer * answer = (ServerAnswer *)in.obtieneDatos();
+	unsigned long long int asteroidNodes;
+	int answerCount;
 	if(answer->answer  == R_STARTGAME)
 	{
 		Display *disp = NULL;
@@ -39,48 +39,36 @@ int main()
 		disp = XOpenDisplay(NULL);
 		ventana = XCreateSimpleWindow (disp, XDefaultRootWindow (disp), 0, 0, G_WINDOW_WIDTH, G_WINDOW_HEIGHT, 1,1,BlackPixel (disp, DefaultScreen(disp)));
 		XMapWindow (disp, ventana);
-		spaceShipColor = BlackPixel(disp,0)^ObtieneColor( disp, "aqua");
-		asteroidColor = BlackPixel(disp,0)^ObtieneColor( disp, "red");
 		int playing = 1;
 		while(playing){
 			
-			// Spaceship
-			rq.request = R_SPACESHIP;
-			out = new PaqueteDatagrama((char*)&rq, sizeof(rq), "127.0.0.1", C_SERVER_PORT);
-			skt.envia(out);
-			ans = skt.recibe(&in);
-			if(ans == -1)
-				printf("Lost package\n");
-			answer = (ServerAnswer *)in.obtieneDatos();
-			XSetForeground( disp, XDefaultGC (disp, DefaultScreen(disp)), CC_GREEN);
-			XDrawLines(disp, ventana,XDefaultGC (disp, DefaultScreen(disp)), answer->points, answer->count, CoordModeOrigin);
 			
-			// Asteroids
-			rq.request = R_ASTEROID_COUNT;
+			rq.request = R_FULLFRAME;
 			out = new PaqueteDatagrama((char*)&rq, sizeof(rq), "127.0.0.1", C_SERVER_PORT);
-			XSetForeground( disp, XDefaultGC (disp, DefaultScreen(disp)), asteroidColor);
 			skt.envia(out);
 			ans = skt.recibe(&in);
 			if(ans == -1)
 				printf("Lost package\n");
 			answer = (ServerAnswer *)in.obtieneDatos();
-			int asteroidCount  =  answer->count;
-			for(int ii = 0; ii < asteroidCount; ii++)
+			answerCount = answer->asteroidCount;
+			XSetForeground( disp, XDefaultGC (disp, DefaultScreen(disp)), CC_GREEN);
+			
+			// Nave espacial:
+			XDrawLines(disp, ventana,XDefaultGC (disp, DefaultScreen(disp)), answer->points, 4, CoordModeOrigin);
+			
+			// Asteroides:
+			asteroidNodes = answer->asteroidNodes;
+			while(asteroidNodes)
 			{
-				rq.request = R_ASTEROID;
-				rq.requestOpt = ii;
-				out = new PaqueteDatagrama((char*)&rq, sizeof(rq), "127.0.0.1", C_SERVER_PORT);
-				XSetForeground( disp, XDefaultGC (disp, DefaultScreen(disp)), CC_GREEN);
-				skt.envia(out);
-				ans = skt.recibe(&in);
-				answer = (ServerAnswer *)in.obtieneDatos();
-				if(ans == -1)
-					printf("Lost package\n");
-				XDrawLines(disp, ventana,XDefaultGC (disp, DefaultScreen(disp)), answer->points, answer->count, CoordModeOrigin);	
+				int aa = asteroidNodes % 10;
+				asteroidNodes /= 10;
+				XDrawLines(disp, ventana,XDefaultGC (disp, DefaultScreen(disp)), answer->points + (answerCount - aa), aa, CoordModeOrigin);
+				answerCount -= aa;
 			}
+			
 			free(out);
 			XSetForeground( disp, XDefaultGC (disp, DefaultScreen(disp)), CC_GREEN);
-			usleep(41666);	
+			usleep(delay * 500);	
 			XClearWindow(disp,ventana);
 		}		
 	}
