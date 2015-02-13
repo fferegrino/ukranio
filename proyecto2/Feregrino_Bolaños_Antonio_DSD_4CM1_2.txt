@@ -1,0 +1,711 @@
+Asteroid.cpp
+Implementación de la clase "Asteroid", contiene la lógica de los asteroides dentro del juego
+
+#include "Asteroid.h"
+#include <cmath>
+#define PI 3.14159265
+
+
+Asteroid::Asteroid(int x, int y) :
+	GameObject(x,y)
+{
+	_angle = 0;
+	_size = 30;
+	_pointsNumber = 7;
+	points  = (XPoint *)malloc(sizeof(XPoint) * _pointsNumber);
+}
+
+Asteroid::Asteroid(int x1, int y1, int x2, int y2) :
+	GameObject(x1,y1), _x2(x2), _y2(y2), _x1(x1), _y1(y1)
+{
+	_angle = 0;
+	_size = 30;
+	_pointsNumber = 7;
+	points  = (XPoint *)malloc(sizeof(XPoint) * _pointsNumber);
+}
+
+void Asteroid::setAngle(int angle)
+{
+	_angle = angle;
+}
+void Asteroid::setSize(int size)
+{
+	_size = size;
+}
+
+XPoint * Asteroid::getPoints()
+{
+	int height = 30;
+	int a = 360 / (_pointsNumber - 1);
+	
+	//Ecuacion de la recta:
+	int xp = _x2 - _x1;
+	int yp = _y2 - _y1;
+	int sol = (-1 * xp * _y1) + yp * _x1 - yp * _x;
+	_y = -1 * sol / xp;
+	
+	for(int i = 0; i < _pointsNumber ; i++)
+	{
+		points[i].x = ((_size) * std::cos ( _angle + (i*a) * PI / 180.0 )) + _x;
+		points[i].y = ((_size) * std::sin ( _angle + (i*a) * PI / 180.0 )) + _y;
+	}
+	
+	return points;
+}
+
+int Asteroid::getPointsNumber()
+{
+	return _pointsNumber;
+}
+*******************************************************************************
+Asteroid.h
+Declara la clase "Asteroid"
+
+#ifndef __ASTEROID_H__
+#define __ASTEROID_H__
+
+#include "GameObject.h"
+#include <unistd.h>
+#include <cstdlib>
+
+class Asteroid : public GameObject {
+
+	public: 
+		Asteroid(int, int);
+		Asteroid(int, int, int, int);
+		void setAngle(int);
+		void setSize(int);
+		XPoint * getPoints();
+		int getPointsNumber();
+	private:
+		int _size;
+		int _x1;
+		int _y1;
+		int _x2;
+		int _y2;
+};
+
+
+#endif 
+*******************************************************************************
+cliente.cpp
+Archivo que contiene el código que corre el cliente, el cliente es el encargado de imprimir solo lo que el servidor le envía
+
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <ctype.h>
+#include <unistd.h>
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include "SpaceShip.h"
+#include "SocketDatagrama.h"
+#include "PaqueteDatagrama.h"
+#include "GameCommon.h"
+
+unsigned long ObtieneColor( Display* dis, char* color_name );
+
+char clientIp[16];
+int clientPort;
+unsigned long spaceShipColor;
+unsigned long asteroidColor;
+
+int main()
+{
+	int delay = 5;
+	int ans = 0;
+	SocketDatagrama skt = SocketDatagrama(C_CLIENT_PORT);
+	skt.setReceiveTime(0.5);
+	ClientRequest rq;
+	rq.request = R_STARTGAME;
+	PaqueteDatagrama * out = new PaqueteDatagrama((char*)&rq, sizeof(rq), "127.0.0.1", C_SERVER_PORT);
+	PaqueteDatagrama in = PaqueteDatagrama(sizeof(ServerAnswer));
+	skt.envia(out);
+	skt.recibe(&in);
+	ServerAnswer * answer = (ServerAnswer *)in.obtieneDatos();
+	if(answer->answer  == R_STARTGAME)
+	{
+		Display *disp = NULL;
+		Window ventana;
+		XColor color;
+		disp = XOpenDisplay(NULL);
+		ventana = XCreateSimpleWindow (disp, XDefaultRootWindow (disp), 0, 0, G_WINDOW_WIDTH, G_WINDOW_HEIGHT, 1,1,BlackPixel (disp, DefaultScreen(disp)));
+		XMapWindow (disp, ventana);
+		spaceShipColor = BlackPixel(disp,0)^ObtieneColor( disp, "aqua");
+		asteroidColor = BlackPixel(disp,0)^ObtieneColor( disp, "red");
+		int playing = 1;
+		while(playing){
+			
+			// Spaceship
+			rq.request = R_SPACESHIP;
+			out = new PaqueteDatagrama((char*)&rq, sizeof(rq), "127.0.0.1", C_SERVER_PORT);
+			skt.envia(out);
+			ans = skt.recibe(&in);
+			if(ans == -1)
+				printf("Lost package\n");
+			answer = (ServerAnswer *)in.obtieneDatos();
+			XSetForeground( disp, XDefaultGC (disp, DefaultScreen(disp)), spaceShipColor);
+			XDrawLines(disp, ventana,XDefaultGC (disp, DefaultScreen(disp)), answer->points, answer->count, CoordModeOrigin);
+			
+			// Asteroids
+			rq.request = R_ASTEROID_COUNT;
+			out = new PaqueteDatagrama((char*)&rq, sizeof(rq), "127.0.0.1", C_SERVER_PORT);
+			XSetForeground( disp, XDefaultGC (disp, DefaultScreen(disp)), asteroidColor);
+			skt.envia(out);
+			ans = skt.recibe(&in);
+			if(ans == -1)
+				printf("Lost package\n");
+			answer = (ServerAnswer *)in.obtieneDatos();
+			int asteroidCount  =  answer->count;
+			for(int ii = 0; ii < asteroidCount; ii++)
+			{
+				rq.request = R_ASTEROID;
+				rq.requestOpt = ii;
+				out = new PaqueteDatagrama((char*)&rq, sizeof(rq), "127.0.0.1", C_SERVER_PORT);
+				XSetForeground( disp, XDefaultGC (disp, DefaultScreen(disp)), asteroidColor);
+				skt.envia(out);
+				ans = skt.recibe(&in);
+				answer = (ServerAnswer *)in.obtieneDatos();
+				if(ans == -1)
+					printf("Lost package\n");
+				XDrawLines(disp, ventana,XDefaultGC (disp, DefaultScreen(disp)), answer->points, answer->count, CoordModeOrigin);	
+			}
+			free(out);
+			XSetForeground( disp, XDefaultGC (disp, DefaultScreen(disp)), spaceShipColor);
+			usleep(delay * 1000);	
+			XClearWindow(disp,ventana);
+		}		
+	}
+	
+	
+}
+
+unsigned long ObtieneColor( Display* dis, char* color_name )
+{
+	Colormap cmap;
+	XColor color_cercano, color_verdadero;
+	cmap = DefaultColormap( dis, 0 );
+	XAllocNamedColor( dis, cmap, color_name, &color_cercano, &color_verdadero );
+	return( color_cercano.pixel );
+}
+*******************************************************************************
+GameCommon.h
+Contiene algunas definiciones como constantes o estructuras que son comunes tanto al cliente como al servidor
+
+#define R_STARTGAME 0x01
+#define R_SPACESHIP 0x02
+#define R_ASTEROID 0x03
+#define R_ASTEROID_COUNT 0x04
+#define R_ENDGAME 0x00
+
+#define C_SERVER_PORT 7654
+#define C_CLIENT_PORT 4567
+
+#define G_WINDOW_WIDTH 500
+#define G_WINDOW_HEIGHT 500
+
+
+struct ServerAnswer 
+{
+	int answer;
+	int count;
+	XPoint points[10];
+};
+
+struct ClientRequest
+{
+	int request;
+	int requestOpt;
+};
+*******************************************************************************
+GameObject.cpp
+Implementación de la clase "GameObject", contiene la lógica de los objetos dentro del juego
+
+#include "GameObject.h"
+
+GameObject::GameObject(int x, int y) :
+	_x(x), _y(y)
+{
+	
+}
+
+int GameObject::getPointsNumber()
+{
+	return -1;
+}
+
+XPoint * GameObject::getPoints()
+{
+	return NULL;
+}
+
+
+
+void GameObject::setAngle(int ang)
+{
+	
+}
+
+
+void GameObject::setX(int x)
+{
+	_x= x;
+}
+
+void GameObject::setY(int y)
+{
+	_y = y;
+}
+
+int GameObject::getY()
+{
+	return _y;
+}
+
+int GameObject::getX()
+{
+	return _x;
+}
+*******************************************************************************
+GameObject.h
+Declara la clase "GameObject"
+
+#ifndef __GAMEOBJECT_H__
+#define __GAMEOBJECT_H__
+#include <X11/Xlib.h>
+
+class GameObject {
+	public:
+		GameObject(int, int);
+		virtual void setAngle(int);
+		virtual XPoint * getPoints();
+		virtual int getPointsNumber();
+		virtual void setX(int);
+		virtual void setY(int);
+		virtual int getX();
+		virtual int getY();
+	protected: 
+		int _x;
+		int _y;
+		int _angle;
+		int _pointsNumber;
+		XPoint * points;
+};
+#endif
+*******************************************************************************
+Makefile
+El archivo Makefile para compilar y correr el proyecto
+
+run: compile
+	./server.out
+#	./cliente.out
+compile: compile-libs
+	g++ server.cpp -o server.out SpaceShip.o GameObject.o Asteroid.o PaqueteDatagrama.o SocketDatagrama.o
+	g++ cliente.cpp -o cliente.out SpaceShip.o GameObject.o PaqueteDatagrama.o SocketDatagrama.o -lX11
+compile-libs:
+	g++ -c GameObject.cpp 
+	g++ -c SpaceShip.cpp 
+	g++ -c Asteroid.cpp 
+	g++ -c PaqueteDatagrama.cpp
+	g++ -c SocketDatagrama.cpp
+	clear
+clean:
+	rm GameObject.o
+	rm SpaceShip.o
+	rm Asteroid.o
+	rm PaqueteDatagrama.o
+	rm SocketDatagrama.o
+	rm server.out
+	clear
+*******************************************************************************
+PaqueteDatagrama.cpp
+Contiene la implementación de la clase "PaqueteDatagrama", para la comunicación entre cliente y servidor
+
+#include "PaqueteDatagrama.h"
+#include <cstring>
+#include <arpa/inet.h>
+#include <cstdlib>
+
+PaqueteDatagrama::PaqueteDatagrama(char * datos, unsigned int longitud, char * ip, int puerto)
+	: _longitud(longitud), _puerto(puerto)
+{
+	if(longitud)
+	{
+		_datos = (char*)malloc(longitud * sizeof(char));
+		memcpy( _datos, datos, longitud);
+	}
+	else
+	{
+		_datos = NULL;
+	}
+	strcpy (_ip,ip);
+}
+
+PaqueteDatagrama::PaqueteDatagrama(unsigned int longitud)
+	: _longitud(longitud)
+{
+	if(longitud)
+	{
+		_datos = (char*)malloc(longitud * sizeof(char));
+	}
+	else
+	{
+		_datos = NULL;
+	}
+}
+
+char * PaqueteDatagrama::obtieneDireccion()
+{
+	return _ip;
+}
+
+unsigned long long PaqueteDatagrama::obtieneLongIp()
+{
+	return inet_addr(_ip);
+}
+
+unsigned int PaqueteDatagrama::obtieneLongitud()
+{
+	return _longitud;
+}
+
+int PaqueteDatagrama::obtienePuerto()
+{
+	return _puerto;
+}
+
+char *PaqueteDatagrama::obtieneDatos()
+{
+	return _datos;
+}
+
+void PaqueteDatagrama::inicializaPuerto(int puerto)
+{
+	_puerto = puerto;
+}
+
+void PaqueteDatagrama::inicializaIp(char * ip)
+{
+	strcpy (_ip,ip);	
+}
+
+PaqueteDatagrama::~PaqueteDatagrama()
+{
+	free(_datos);
+}
+*******************************************************************************
+PaqueteDatagrama.h
+Declara la clase "PaqueteDatagrama"
+
+#ifndef __PAQUETEDATAGRAMA_H__
+#define __PAQUETEDATAGRAMA_H__
+
+class PaqueteDatagrama {
+	public:
+		PaqueteDatagrama(char * datos, unsigned int longitud, char * ip, int puerto);
+		PaqueteDatagrama(unsigned int longitud);
+		~PaqueteDatagrama();
+		char *obtieneDireccion();
+		unsigned long long int obtieneLongIp();
+		unsigned int obtieneLongitud();
+		int obtienePuerto();
+		char *obtieneDatos();
+		void inicializaPuerto(int);
+		void inicializaIp(char *);
+	private:
+		char * _datos;
+		//Almacena los datos
+		char _ip[16];
+		//Almacena la IP
+		unsigned int _longitud;
+		//Almacena la longitude de la cadena de datos
+		int _puerto;
+		//Almacena el puerto
+}; 
+
+#endif
+*******************************************************************************
+server.cpp
+Archivo que contiene el código que corre el servidor, el servidor es el encargado de generar los objetos de juego y enviarlos al cliente
+
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <ctype.h>
+#include "SpaceShip.h"
+#include "Asteroid.h"
+#include "SocketDatagrama.h"
+#include "PaqueteDatagrama.h"
+#include "GameCommon.h"
+
+char clientIp[16];
+int clientPort;
+
+int main()
+{
+	
+	SocketDatagrama skt = SocketDatagrama(C_SERVER_PORT);
+	PaqueteDatagrama in = PaqueteDatagrama(sizeof(ClientRequest));
+	int x = G_WINDOW_WIDTH / 2;
+	ClientRequest * clientRequest;
+	PaqueteDatagrama * out = NULL;
+	SpaceShip * spaceShip = NULL;
+	Asteroid ** asteroids = NULL;
+	int asteroidCount = 4;
+	ServerAnswer sa;
+	int request = 0;
+	int requestOpt = -1;
+		int angle = 0;
+		int xast = 0;
+	do {
+		skt.recibe(&in);
+		clientRequest  = (ClientRequest *)in.obtieneDatos();
+		request = clientRequest->request;
+		requestOpt = clientRequest->requestOpt;
+		strcpy(clientIp, in.obtieneDireccion());
+		clientPort = in.obtienePuerto();
+		switch(request)
+		{
+			case R_STARTGAME:
+				sa.answer = R_STARTGAME;
+				sa.count = 0;
+				out = new PaqueteDatagrama((char*)&sa, sizeof(sa), clientIp, clientPort);
+				spaceShip =  new SpaceShip(G_WINDOW_WIDTH  / 2 ,G_WINDOW_HEIGHT / 2);
+				asteroids = (Asteroid **)malloc(sizeof(Asteroid *) * asteroidCount);
+				
+				asteroids[0] = new Asteroid(0,G_WINDOW_HEIGHT, 40, 19);
+				
+				asteroids[1] = new Asteroid(G_WINDOW_WIDTH,G_WINDOW_HEIGHT, G_WINDOW_WIDTH / 2, 10);
+				
+				asteroids[2] = new Asteroid(G_WINDOW_WIDTH,0, 54, G_WINDOW_WIDTH / 2);
+				
+				asteroids[3] = new Asteroid(0,0, 90, 6);
+				
+				break;
+			case R_SPACESHIP:
+				sa.answer = R_SPACESHIP;
+				sa.count = spaceShip->getPointsNumber();
+				memcpy(sa.points, spaceShip->getPoints(), sa.count*sizeof(XPoint));
+				out = new PaqueteDatagrama((char*)&sa, sizeof(sa), clientIp, clientPort);
+				break;
+			case R_ASTEROID_COUNT:
+				sa.answer = R_ASTEROID_COUNT;
+				sa.count = asteroidCount;
+				out = new PaqueteDatagrama((char*)&sa, sizeof(sa), clientIp, clientPort);
+				break;
+			case R_ASTEROID:
+				sa.answer = R_ASTEROID;
+				sa.count = asteroids[requestOpt]->getPointsNumber();
+				asteroids[requestOpt]->setAngle(angle);
+				asteroids[requestOpt]->setX(xast);
+				angle++;
+				xast++;
+				angle = angle % 360;
+				xast = xast % G_WINDOW_WIDTH;
+				memcpy(sa.points, asteroids[requestOpt]->getPoints(), sa.count*sizeof(XPoint));
+				out = new PaqueteDatagrama((char*)&sa, sizeof(sa), clientIp, clientPort);
+				break;
+		}
+		
+		skt.envia(out);
+		free(out);
+		
+	} while(request != R_ENDGAME);
+}
+*******************************************************************************
+SocketDatagrama.cpp
+Contiene la implementación de la clase "SocketDatagrama", para la comunicación entre cliente y servidor
+
+#include "SocketDatagrama.h"
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <cstring>
+
+SocketDatagrama::SocketDatagrama(int port)
+{
+	bzero((char *)&direccionLocal, sizeof(direccionLocal));
+	_s = socket(AF_INET, SOCK_DGRAM, 0);
+	direccionLocal.sin_family = AF_INET;
+	direccionLocal.sin_addr.s_addr = INADDR_ANY;
+	direccionLocal.sin_port = htons(port);
+	bind(_s, (struct sockaddr *)&direccionLocal,sizeof(direccionLocal));
+	
+}
+
+SocketDatagrama::SocketDatagrama(int port, char * address)
+{
+	bzero((char *)&direccionLocal, sizeof(direccionLocal));
+	_s = socket(AF_INET, SOCK_DGRAM, 0);
+	direccionLocal.sin_family = AF_INET;
+	direccionLocal.sin_addr.s_addr = inet_addr(address);
+	direccionLocal.sin_port = htons(port);
+	bind(_s, (struct sockaddr *)&direccionLocal,sizeof(direccionLocal));
+}
+
+SocketDatagrama::SocketDatagrama()
+{
+	bzero((char *)&direccionLocal, sizeof(direccionLocal));
+	_s = socket(AF_INET, SOCK_DGRAM, 0);
+	direccionLocal.sin_family = AF_INET;
+	direccionLocal.sin_addr.s_addr = INADDR_ANY;
+	direccionLocal.sin_port = htons(0);
+	bind(_s, (struct sockaddr *)&direccionLocal,sizeof(direccionLocal));
+}
+
+SocketDatagrama::~SocketDatagrama()
+{
+	shutdown(_s, 2);
+}
+
+int SocketDatagrama::recibe(PaqueteDatagrama *p)
+{
+	unsigned int addr_len = sizeof(direccionForanea);
+	int answer = recvfrom(_s, p->obtieneDatos(), p->obtieneLongitud(), 0, (struct sockaddr *)&direccionForanea, &addr_len);
+	p->inicializaIp(inet_ntoa(direccionForanea.sin_addr));
+	p->inicializaPuerto(ntohs(direccionForanea.sin_port));
+	return answer;
+}
+
+char * SocketDatagrama::obtieneIp()
+{
+		struct sockaddr_in foo;
+		unsigned int addr_len = sizeof(foo);
+		getsockname(_s, (struct sockaddr *)&foo, &addr_len);
+		return inet_ntoa(foo.sin_addr);
+}
+
+int SocketDatagrama::envia(PaqueteDatagrama *p)
+{
+	direccionForanea.sin_family = AF_INET;
+	direccionForanea.sin_addr.s_addr = inet_addr(p->obtieneDireccion());
+	direccionForanea.sin_port = htons(p->obtienePuerto());
+	sendto(_s, p->obtieneDatos(), p->obtieneLongitud(), 0, (struct sockaddr *) &direccionForanea, sizeof(direccionForanea));
+}
+
+void SocketDatagrama::setReusePort(bool reuse)
+{
+	int r = reuse ? 1 : 0;
+	setsockopt(_s, SOL_SOCKET, SO_REUSEPORT, &r,sizeof(int));
+}
+
+
+void SocketDatagrama::setBroadcast(bool i)
+{
+	int r = i ? 1 : 0;
+	setsockopt(_s, SOL_SOCKET, SO_BROADCAST, &r,sizeof(int));
+}
+
+
+void SocketDatagrama::setReceiveTime(double seconds){
+	struct timeval tiempoFuera;
+	tiempoFuera.tv_sec = 0;
+	tiempoFuera.tv_usec = 1000000 * seconds;
+	setsockopt(_s, SOL_SOCKET, SO_RCVTIMEO, (char *)&tiempoFuera, sizeof(tiempoFuera));
+}
+*******************************************************************************
+SocketDatagrama.h
+Declara la clase "SocketDatagrama"
+
+#ifndef __SOCKETDATAGRAMA_H__
+#define __SOCKETDATAGRAMA_H__
+
+#include "PaqueteDatagrama.h"
+#include <netinet/in.h>
+
+class SocketDatagrama{
+	public:
+		SocketDatagrama();
+		SocketDatagrama(int);
+		SocketDatagrama(int, char *);
+		~SocketDatagrama();
+		int recibe(PaqueteDatagrama *p);
+		int envia(PaqueteDatagrama *p);
+		char * obtieneIp();
+		void setReusePort(bool);
+		void setBroadcast(bool);
+		void setReceiveTime(double seconds);
+	private:
+		struct sockaddr_in direccionLocal;
+		struct sockaddr_in direccionForanea;
+		int _s; //ID socket
+};
+
+#endif
+*******************************************************************************
+SpaceShip.cpp
+Implementación de la clase "SpaceShip", contiene la lógica de la navecita en el juego
+
+#include "SpaceShip.h"
+#include <cmath>
+#define PI 3.14159265
+
+SpaceShip::SpaceShip(int x, int y) :
+	GameObject(x,y)
+{
+	_angle = 0;
+	_size = 30;
+	_pointsNumber = 4;
+	points  = (XPoint *)malloc(sizeof(XPoint) * _pointsNumber);
+}
+
+void SpaceShip::setAngle(int angle)
+{
+	_angle = angle;
+}
+void SpaceShip::setSize(int size)
+{
+	_size = size;
+}
+
+XPoint * SpaceShip::getPoints()
+{
+	int height = 30;
+	
+	
+	
+	points[0].x = ((_size) * std::cos ( _angle * PI / 180.0 )) + _x;
+	points[0].y = ((_size) * std::sin ( _angle * PI / 180.0 ))  + _y;
+	
+	points[1].x = ((_size) * std::cos ( (_angle + 120) * PI / 180.0 ))+ _x;
+	points[1].y = ((_size) * std::sin ( (_angle + 120) * PI / 180.0 )) + _y;
+	
+	points[2].x = ((_size) * std::cos ( (_angle + 240) * PI / 180.0 )) + _x;
+	points[2].y = ((_size) * std::sin ( (_angle + 240) * PI / 180.0 )) + _y;
+	
+	points[3].x = ((_size) * std::cos ( _angle * PI / 180.0 )) + _x;
+	points[3].y = ((_size) * std::sin ( _angle * PI / 180.0 )) + _y;
+	
+	return points;
+}
+
+int SpaceShip::getPointsNumber()
+{
+	return _pointsNumber;
+}
+*******************************************************************************
+SpaceShip.h
+Declara la clase "SpaceShip"
+
+#ifndef __SPACESHIP_H__
+#define __SPACESHIP_H__
+
+#include "GameObject.h"
+#include <unistd.h>
+#include <cstdlib>
+
+class SpaceShip : public GameObject {
+
+	public: 
+		SpaceShip(int, int);
+		void setAngle(int);
+		void setSize(int);
+		XPoint * getPoints();
+		int getPointsNumber();
+	private:
+		int _size;
+};
+
+
+#endif 
