@@ -1,9 +1,9 @@
 run: compile
 	./server.out
 #	./cliente.out
-test: compile
-	g++ test.cpp -o test.out SpaceShip.o GameObject.o Asteroid.o -std=c++11 -lX11
-	./test.out
+test: 
+	g++ test.cpp -o _test.out 
+	./_test.out
 compile: compile-libs
 	g++ server.cpp -o server.out SpaceShip.o GameObject.o Asteroid.o PaqueteDatagrama.o SocketDatagrama.o -std=c++11
 	g++ cliente.cpp -o cliente.out SpaceShip.o GameObject.o PaqueteDatagrama.o SocketDatagrama.o -lX11

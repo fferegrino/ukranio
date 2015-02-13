@@ -1,33 +1,56 @@
 #pragma GCC diagnostic ignored "-Wwrite-strings"
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <ctype.h>
+#include <dirent.h> 
+#include <iostream> 
+#include <vector>
+#include <algorithm>
 #include <unistd.h>
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include "SpaceShip.h"
-#include "SocketDatagrama.h"
-#include "PaqueteDatagrama.h"
-#include "GameCommon.h"
+#include <fcntl.h>	
+#include <string>
 
-unsigned long ObtieneColor( Display* dis, char* color_name );
-
-unsigned long spaceShipColor;
-unsigned long asteroidColor;
-const int delay = 5;
-
+using namespace std;
+vector<string> files;
+char buffer[1024];
 int main()
 {
+	string asterisks = string("*************************************\n");
+	string line = string("\n");
+	DIR *dir;
+	struct dirent *ent;
+	if ((dir = opendir (".")) != NULL) 
+	{
+		/* print all the files and directories within directory */
+		while ((ent = readdir (dir)) != NULL) 
+		{
+			files.push_back(string(ent->d_name));
+		}
+		closedir (dir);
+	} 
+	else 
+	{
+		return -1;
+	}
 	
-	printf("%d\n", sizeof(XPoint));
-}
-
-unsigned long ObtieneColor( Display* dis, char* color_name )
-{
-	Colormap cmap;
-	XColor color_cercano, color_verdadero;
-	cmap = DefaultColormap( dis, 0 );
-	XAllocNamedColor( dis, cmap, color_name, &color_cercano, &color_verdadero );
-	return( color_cercano.pixel );
+	int bytes,b, origen, destino;
+	sort(files.begin(), files.end());
+	destino = open("_out.txt", O_WRONLY|O_TRUNC|O_CREAT, 0666);
+	for(int i = 0; i < files.size();i++)
+	{
+		bytes  = 0;
+		b = 0;
+		origen = open(files[i].c_str(), O_RDONLY);
+		if('_' != files[i][0] && '.' != files[i][0])
+		{
+			write(destino, files[i].c_str(), files[i].size());
+			write(destino, line.c_str(), line.size());
+			while((b = read(origen, buffer, 1024)) > 0)
+			{
+				bytes += b;
+				write(destino, buffer, b);
+			}
+			write(destino, asterisks.c_str(), asterisks.size());
+		}
+		cout << files[i] << " " << bytes << endl;
+		close(origen);
+	}
+	close(destino);
 }
